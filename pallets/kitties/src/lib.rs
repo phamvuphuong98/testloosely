@@ -19,6 +19,7 @@ pub mod pallet {
 	use frame_support::serde::{Deserialize, Serialize};
 
 	type AccountOf<T> = <T as frame_system::Config>::AccountId;
+	type TypeTime<T> = <<T as Config>::TimeNew as Time>::Moment;
 
 	type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -32,7 +33,7 @@ pub mod pallet {
 		pub price: Option<BalanceOf<T>>,
 		pub gender: Gender,
 		pub owner: AccountOf<T>,
-		pub date_created: Option<T::TimeNew::Moment>
+		pub date_created: Option<TypeTime<T>>
 	}
 
 	// Enum declaration for Gender.
