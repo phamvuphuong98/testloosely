@@ -24,8 +24,14 @@ pub mod pallet {
 	type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
+	impl<T: Config> MaxEncodedLen for Kitty<T> {
+		fn max_encoded_len() -> usize {
+			let len: usize = 4;
+			len
+		}
+	}
 	// Struct for holding Kitty information.
-	#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
 	#[codec(mel_bound())]
 	pub struct Kitty<T: Config> {
@@ -50,7 +56,7 @@ pub mod pallet {
 
 	/// Configure the pallet by specifying the parameters and types it depends on.
 	#[pallet::config]
-	pub trait Config: frame_system::Config + pallet_timestamp::Config{
+	pub trait Config: frame_system::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
@@ -309,7 +315,7 @@ pub mod pallet {
 				price: None,
 				gender: gender.unwrap_or_else(Self::gen_gender),
 				owner: owner.clone(),
-				date_created: Some(pallet_timestamp::Pallet::<T>::get())
+				date_created: Some(T::TimeNew::now())
 			};
 
 			let kitty_id = T::Hashing::hash_of(&kitty);
@@ -338,7 +344,7 @@ pub mod pallet {
 				price: None,
 				gender: gender.unwrap_or_else(Self::gen_gender),
 				owner: owner.clone(),
-				date_created: Some(pallet_timestamp::Pallet::<T>::get())
+				date_created: Some(T::TimeNew::now())
 			};
 
 			let kitty_id = T::Hashing::hash_of(&kitty);

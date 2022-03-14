@@ -277,7 +277,7 @@ impl pallet_template::Config for Runtime {
 /// Configure the pallet-loosely in pallets/loosely.
 impl pallet_loosely::Config for Runtime {
 	type Event = Event;
-	type Create = Kitties;
+	type Create = SubstrateKitties;
 }
 
 parameter_types! {
@@ -309,7 +309,7 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
-		Kitties: pallet_kitties,
+		SubstrateKitties: pallet_kitties,
 		Loosely: pallet_loosely,
 	}
 );
