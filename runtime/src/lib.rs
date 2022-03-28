@@ -474,6 +474,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl pallet_kitties_rpc_runtime_api::GetKittyCount<Block> for Runtime {
+		fn get_kitty_count() -> u32 {
+			SubstrateKitties::get_kitty_count()
+		}
+	}
+
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
 		fn query_info(
 			uxt: <Block as BlockT>::Extrinsic,

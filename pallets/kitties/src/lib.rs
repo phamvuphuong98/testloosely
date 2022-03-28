@@ -285,6 +285,11 @@ pub mod pallet {
 	//** Our helper functions.**//
 
 	impl<T: Config> Pallet<T> {
+
+		pub fn get_kitty_count() -> u32{
+			KittyCnt::<T>::get()
+		}
+
 		fn gen_gender() -> Gender {
 			let random = T::KittyRandomness::random(&b"gender"[..]).0;
 			match random.as_ref()[0] % 2 {
