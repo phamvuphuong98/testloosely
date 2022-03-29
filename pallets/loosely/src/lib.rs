@@ -18,14 +18,12 @@ pub use pallet::*;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use pallet_kitties::KittyNew;
 	
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_kitties::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-		type Create: KittyNew<Self>;
 	}
 
 	#[pallet::pallet]
@@ -65,17 +63,6 @@ pub mod pallet {
 	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// An example dispatchable that takes a singles value as a parameter, writes the value to
-		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-		pub fn create_new(origin: OriginFor<T>) -> DispatchResult {
-			let sender = ensure_signed(origin.clone())?;
-			T::Create::create_kitty_new(origin);
-			// Emit an event.
-			//Self::deposit_event(Event::Created(sender));
-			// Return a successful DispatchResultWithPostInfo
-			Ok(())
-		}
 
 	}
 }

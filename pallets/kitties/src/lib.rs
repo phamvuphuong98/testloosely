@@ -13,6 +13,7 @@ mod benchmarking;
 
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
+use sp_std::vec::Vec;
 #[frame_support::pallet]
 pub mod pallet {
 	pub use super::*;
@@ -23,6 +24,7 @@ pub mod pallet {
 	};
 	use sp_io::hashing::blake2_128;
 	use scale_info::TypeInfo;
+	
 	#[cfg(feature = "std")]
 	use frame_support::serde::{Deserialize, Serialize};
 
@@ -32,30 +34,23 @@ pub mod pallet {
 	type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-	impl<T: Config> MaxEncodedLen for Kitty<T> {
+	impl<T: Config> MaxEncodedLen for Domain<T> {
 		fn max_encoded_len() -> usize {
 			let len: usize = 4;
 			len
 		}
 	}
-	// Struct for holding Kitty information.
+	// Struct for holding domain information.
 	#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
 	#[codec(mel_bound())]
-	pub struct Kitty<T: Config> {
-		pub dna: [u8; 16],   // Using 16 bytes to represent a kitty DNA
+
+	pub struct Domain<T: Config> {
+		pub domain: Vec<u8>,
 		pub price: Option<BalanceOf<T>>,
-		pub gender: Gender,
+		pub wallet: Option<Vec<u8>>,
 		pub owner: AccountOf<T>,
 		pub date_created: Option<TypeTime<T>>
-	}
-
-	// Enum declaration for Gender.
-	#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-	#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-	pub enum Gender {
-		Male,
-		Female,
 	}
 
     #[pallet::pallet]
@@ -68,72 +63,71 @@ pub mod pallet {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
-		/// The Currency handler for the Kitties pallet.
+		/// The Currency handler for the domains pallet.
 		type Currency: Currency<Self::AccountId>;
 
-		/// The maximum amount of Kitties a single account can own.
+		/// The maximum amount of domains a single account can own.
 		#[pallet::constant]
-		type MaxKittyOwned: Get<u32>;
-
-		/// The type of Randomness we want to specify for this pallet.
-		type KittyRandomness: Randomness<Self::Hash, Self::BlockNumber>;
+		type MaxDomainOwned: Get<u32>;
 		type TimeNew: Time;
 	}
 
 	// Errors.
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Handles arithmetic overflow when incrementing the Kitty counter.
-		KittyCntOverflow,
-		/// An account cannot own more Kitties than `MaxKittyCount`.
-		ExceedMaxKittyOwned,
+		/// Handles arithmetic overflow when incrementing the domain counter.
+		domainCntOverflow,
+		/// An account cannot own more domains than `MaxdomainCount`.
+		ExceedMaxdomainOwned,
 		/// Buyer cannot be the owner.
-		BuyerIsKittyOwner,
-		/// Cannot transfer a kitty to its owner.
+		BuyerIsdomainOwner,
+		/// Cannot transfer a domain to its owner.
 		TransferToSelf,
-		/// Handles checking whether the Kitty exists.
-		KittyNotExist,
-		/// Handles checking that the Kitty is owned by the account transferring, buying or setting a price for it.
-		NotKittyOwner,
-		/// Ensures the Kitty is for sale.
-		KittyNotForSale,
+		/// Handles checking whether the domain exists.
+		domainNotExist,
+		/// Handles checking that the domain is owned by the account transferring, buying or setting a price for it.
+		NotdomainOwner,
+		/// Ensures the domain is for sale.
+		domainNotForSale,
 		/// Ensures that the buying price is greater than the asking price.
-		KittyBidPriceTooLow,
-		/// Ensures that an account has enough funds to purchase a Kitty.
+		domainBidPriceTooLow,
+		/// Ensures that an account has enough funds to purchase a domain.
 		NotEnoughBalance,
+		DomainIsset
 	}
 
 	// Events.
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A new Kitty was successfully created. \[sender, kitty_id\]
+		/// A new domain was successfully created. \[sender, domain_id\]
 		Created(T::AccountId, T::Hash),
-		/// Kitty price was successfully set. \[sender, kitty_id, new_price\]
+		/// domain price was successfully set. \[sender, domain_id, new_price\]
 		PriceSet(T::AccountId, T::Hash, Option<BalanceOf<T>>),
-		/// A Kitty was successfully transferred. \[from, to, kitty_id\]
+		WalletSet(T::AccountId, T::Hash, Option<Vec<u8>>),
+		/// A domain was successfully transferred. \[from, to, domain_id\]
 		Transferred(T::AccountId, T::AccountId, T::Hash),
-		/// A Kitty was successfully bought. \[buyer, seller, kitty_id, bid_price\]
+		/// A domain was successfully bought. \[buyer, seller, domain_id, bid_price\]
 		Bought(T::AccountId, T::AccountId, T::Hash, BalanceOf<T>),
 	}
 
 	// Storage items.
 
 	#[pallet::storage]
-	#[pallet::getter(fn kitty_cnt)]
-	/// Keeps track of the number of Kitties in existence.
-	pub(super) type KittyCnt<T: Config> = StorageValue<_, u32, ValueQuery>;
+	#[pallet::getter(fn domain_cnt)]
+	/// Keeps track of the number of domains in existence.
+	pub(super) type DomainCnt<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn kitties)]
-	/// Stores a Kitty's unique traits, owner and price.
-	pub(super) type Kitties<T: Config> = StorageMap<_, Twox64Concat, T::Hash, Kitty<T>>;
+	#[pallet::getter(fn domains)]
+	/// Stores a domain's unique traits, owner and price.
+	pub(super) type Domains<T: Config> = StorageMap<_, Twox64Concat, T::Hash, Domain<T>>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn kitties_owned)]
-	/// Keeps track of what accounts own what Kitty.
-	pub(super) type KittiesOwned<T: Config> =
-		StorageMap<_, Twox64Concat, T::AccountId, BoundedVec<T::Hash, T::MaxKittyOwned>, ValueQuery>;
+	#[pallet::getter(fn domains_owned)]
+	/// Keeps track of what accounts own what domain.
+	pub(super) type DomainsOwned<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, BoundedVec<T::Hash, T::MaxDomainOwned>, ValueQuery>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
@@ -144,139 +138,136 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Create a new unique kitty.
+		/// Create a new unique domain.
 		///
-		/// The actual kitty creation is done in the `mint()` function.
+		/// The actual domain creation is done in the `mint()` function.
 		#[pallet::weight(42_192_000 + T::DbWeight::get().writes(1))]
-		pub fn create_kitty(origin: OriginFor<T>) -> DispatchResult {
+		pub fn create_domain(origin: OriginFor<T>, domain: Vec<u8>) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
+			let domain_id = T::Hashing::hash_of(&domain);
+			ensure!(Self::is_domain_isset(&domain_id)?, <Error<T>>::DomainIsset);
 
-			let kitty_id = Self::mint(&sender, None, None)?;
+			let domain_id = Self::mint(&sender, &domain)?;
 
 			// Logging to the console
-			log::info!("A kitty is born with ID: {:?}.", kitty_id);
+			log::info!("A domain is born with ID: {:?}.", domain_id);
 			// Deposit our "Created" event.
-			Self::deposit_event(Event::Created(sender, kitty_id));
+			Self::deposit_event(Event::Created(sender, domain_id));
 			Ok(())
 		}
 
-		/// Set the price for a Kitty.
+		/// Set the price for a domain.
 		///
-		/// Updates Kitty price and updates storage.
+		/// Updates domain price and updates storage.
 		#[pallet::weight(100)]
 		pub fn set_price(
 			origin: OriginFor<T>,
-			kitty_id: T::Hash,
+			domain_id: T::Hash,
 			new_price: Option<BalanceOf<T>>
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			// Ensure the kitty exists and is called by the kitty owner
-			ensure!(Self::is_kitty_owner(&kitty_id, &sender)?, <Error<T>>::NotKittyOwner);
+			// Ensure the domain exists and is called by the domain owner
+			ensure!(Self::is_domain_owner(&domain_id, &sender)?, <Error<T>>::NotdomainOwner);
 
-			let mut kitty = Self::kitties(&kitty_id).ok_or(<Error<T>>::KittyNotExist)?;
+			let mut domain = Self::domains(&domain_id).ok_or(<Error<T>>::domainNotExist)?;
 
-			kitty.price = new_price.clone();
-			<Kitties<T>>::insert(&kitty_id, kitty);
+			domain.price = new_price.clone();
+			<Domains<T>>::insert(&domain_id, domain);
 
 			// Deposit a "PriceSet" event.
-			Self::deposit_event(Event::PriceSet(sender, kitty_id, new_price));
+			Self::deposit_event(Event::PriceSet(sender, domain_id, new_price));
 
 			Ok(())
 		}
 
-		/// Directly transfer a kitty to another recipient.
+		#[pallet::weight(100)]
+		pub fn set_wallet(
+			origin: OriginFor<T>,
+			domain_id: T::Hash,
+			new_wallet: Option<Vec<u8>>
+		) -> DispatchResult {
+			let sender = ensure_signed(origin)?;
+
+			// Ensure the domain exists and is called by the domain owner
+			ensure!(Self::is_domain_owner(&domain_id, &sender)?, <Error<T>>::NotdomainOwner);
+
+			let mut domain = Self::domains(&domain_id).ok_or(<Error<T>>::domainNotExist)?;
+
+			domain.wallet = new_wallet.clone();
+			<Domains<T>>::insert(&domain_id, domain);
+			Self::deposit_event(Event::WalletSet(sender, domain_id, new_wallet));
+
+			Ok(())
+		}
+
+		/// Directly transfer a domain to another recipient.
 		///
-		/// Any account that holds a kitty can send it to another Account. This will reset the asking
-		/// price of the kitty, marking it not for sale.
+		/// Any account that holds a domain can send it to another Account. This will reset the asking
+		/// price of the domain, marking it not for sale.
 		#[pallet::weight(100)]
 		pub fn transfer(
 			origin: OriginFor<T>,
 			to: T::AccountId,
-			kitty_id: T::Hash
+			domain_id: T::Hash
 		) -> DispatchResult {
 			let from = ensure_signed(origin)?;
 
-			// Ensure the kitty exists and is called by the kitty owner
-			ensure!(Self::is_kitty_owner(&kitty_id, &from)?, <Error<T>>::NotKittyOwner);
+			// Ensure the domain exists and is called by the domain owner
+			ensure!(Self::is_domain_owner(&domain_id, &from)?, <Error<T>>::NotdomainOwner);
 
-			// Verify the kitty is not transferring back to its owner.
+			// Verify the domain is not transferring back to its owner.
 			ensure!(from != to, <Error<T>>::TransferToSelf);
 
-			// Verify the recipient has the capacity to receive one more kitty
-			let to_owned = <KittiesOwned<T>>::get(&to);
-			ensure!((to_owned.len() as u32) < T::MaxKittyOwned::get(), <Error<T>>::ExceedMaxKittyOwned);
+			// Verify the recipient has the capacity to receive one more domain
+			let to_owned = <DomainsOwned<T>>::get(&to);
+			ensure!((to_owned.len() as u32) < T::MaxDomainOwned::get(), <Error<T>>::ExceedMaxdomainOwned);
 
-			Self::transfer_kitty_to(&kitty_id, &to)?;
+			Self::transfer_domain_to(&domain_id, &to)?;
 
-			Self::deposit_event(Event::Transferred(from, to, kitty_id));
+			Self::deposit_event(Event::Transferred(from, to, domain_id));
 
 			Ok(())
 		}
 
-		/// Buy a saleable Kitty. The bid price provided from the buyer has to be equal or higher
+		/// Buy a saleable domain. The bid price provided from the buyer has to be equal or higher
 		/// than the ask price from the seller.
 		///
-		/// This will reset the asking price of the kitty, marking it not for sale.
+		/// This will reset the asking price of the domain, marking it not for sale.
 		/// Marking this method `transactional` so when an error is returned, we ensure no storage is changed.
 		#[transactional]
 		#[pallet::weight(100)]
-		pub fn buy_kitty(
+		pub fn buy_domain(
 			origin: OriginFor<T>,
-			kitty_id: T::Hash,
-			bid_price: BalanceOf<T>
+			domain_id: T::Hash,
 		) -> DispatchResult {
 			let buyer = ensure_signed(origin)?;
 
-			// Check the kitty exists and buyer is not the current kitty owner
-			let kitty = Self::kitties(&kitty_id).ok_or(<Error<T>>::KittyNotExist)?;
-			ensure!(kitty.owner != buyer, <Error<T>>::BuyerIsKittyOwner);
+			// Check the domain exists and buyer is not the current domain owner
+			let domain = Self::domains(&domain_id).ok_or(<Error<T>>::domainNotExist)?;
+			ensure!(domain.owner != buyer, <Error<T>>::BuyerIsdomainOwner);
 
-			// Check the kitty is for sale and the kitty ask price <= bid_price
-			if let Some(ask_price) = kitty.price {
-				ensure!(ask_price <= bid_price, <Error<T>>::KittyBidPriceTooLow);
+			// Check the domain is for sale and the domain ask price <= bid_price
+			if let Some(ask_price) = domain.price {
+				ensure!(T::Currency::free_balance(&buyer) >= ask_price, <Error<T>>::NotEnoughBalance);
+
+				// Verify the buyer has the capacity to receive one more domain
+				let to_owned = <DomainsOwned<T>>::get(&buyer);
+				ensure!((to_owned.len() as u32) < T::MaxDomainOwned::get(), <Error<T>>::ExceedMaxdomainOwned);
+
+				let seller = domain.owner.clone();
+
+				// Transfer the amount from buyer to seller
+				T::Currency::transfer(&buyer, &seller, ask_price, ExistenceRequirement::KeepAlive)?;
+
+				// Transfer the domain from seller to buyer
+				Self::transfer_domain_to(&domain_id, &buyer)?;
+
+				Self::deposit_event(Event::Bought(buyer, seller, domain_id, ask_price));
+
 			} else {
-				Err(<Error<T>>::KittyNotForSale)?;
+				Err(<Error<T>>::domainNotForSale)?;
 			}
-
-			// Check the buyer has enough free balance
-			ensure!(T::Currency::free_balance(&buyer) >= bid_price, <Error<T>>::NotEnoughBalance);
-
-			// Verify the buyer has the capacity to receive one more kitty
-			let to_owned = <KittiesOwned<T>>::get(&buyer);
-			ensure!((to_owned.len() as u32) < T::MaxKittyOwned::get(), <Error<T>>::ExceedMaxKittyOwned);
-
-			let seller = kitty.owner.clone();
-
-			// Transfer the amount from buyer to seller
-			T::Currency::transfer(&buyer, &seller, bid_price, ExistenceRequirement::KeepAlive)?;
-
-			// Transfer the kitty from seller to buyer
-			Self::transfer_kitty_to(&kitty_id, &buyer)?;
-
-			Self::deposit_event(Event::Bought(buyer, seller, kitty_id, bid_price));
-
-			Ok(())
-		}
-
-		/// Breed a Kitty.
-		///
-		/// Breed two kitties to create a new generation
-		/// of Kitties.
-		#[pallet::weight(100)]
-		pub fn breed_kitty(
-			origin: OriginFor<T>,
-			parent1: T::Hash,
-			parent2: T::Hash
-		) -> DispatchResult {
-			let sender = ensure_signed(origin)?;
-
-			// Check: Verify `sender` owns both kitties (and both kitties exist).
-			ensure!(Self::is_kitty_owner(&parent1, &sender)?, <Error<T>>::NotKittyOwner);
-			ensure!(Self::is_kitty_owner(&parent2, &sender)?, <Error<T>>::NotKittyOwner);
-
-			let new_dna = Self::breed_dna(&parent1, &parent2)?;
-			Self::mint(&sender, Some(new_dna), None)?;
 
 			Ok(())
 		}
@@ -285,146 +276,80 @@ pub mod pallet {
 	//** Our helper functions.**//
 
 	impl<T: Config> Pallet<T> {
-		fn gen_gender() -> Gender {
-			let random = T::KittyRandomness::random(&b"gender"[..]).0;
-			match random.as_ref()[0] % 2 {
-				0 => Gender::Male,
-				_ => Gender::Female,
-			}
-		}
-
-		fn gen_dna() -> [u8; 16] {
-			let payload = (
-				T::KittyRandomness::random(&b"dna"[..]).0,
-				<frame_system::Pallet<T>>::block_number(),
-			);
-			payload.using_encoded(blake2_128)
-		}
-
-		pub fn breed_dna(parent1: &T::Hash, parent2: &T::Hash) -> Result<[u8; 16], Error<T>> {
-			let dna1 = Self::kitties(parent1).ok_or(<Error<T>>::KittyNotExist)?.dna;
-			let dna2 = Self::kitties(parent2).ok_or(<Error<T>>::KittyNotExist)?.dna;
-
-			let mut new_dna = Self::gen_dna();
-			for i in 0..new_dna.len() {
-				new_dna[i] = (new_dna[i] & dna1[i]) | (!new_dna[i] & dna2[i]);
-			}
-			Ok(new_dna)
-		}
-
-		// Helper to mint a Kitty.
+		// Helper to mint a domain.
 		pub fn mint(
 			owner: &T::AccountId,
-			dna: Option<[u8; 16]>,
-			gender: Option<Gender>,
+			domain: &Vec<u8>,
 		) -> Result<T::Hash, Error<T>> {
-			let kitty = Kitty::<T> {
-				dna: dna.unwrap_or_else(Self::gen_dna),
+			let domainStruct = Domain::<T> {
 				price: None,
-				gender: gender.unwrap_or_else(Self::gen_gender),
+				domain: domain.clone(),
+				wallet: None,
 				owner: owner.clone(),
 				date_created: Some(T::TimeNew::now())
 			};
 
-			let kitty_id = T::Hashing::hash_of(&kitty);
+			let domain_id = T::Hashing::hash_of(&domain);
 
 			// Performs this operation first as it may fail
-			let new_cnt = Self::kitty_cnt().checked_add(1)
-				.ok_or(<Error<T>>::KittyCntOverflow)?;
+			let new_cnt = Self::domain_cnt().checked_add(1)
+				.ok_or(<Error<T>>::domainCntOverflow)?;
 
 			// Performs this operation first because as it may fail
-			<KittiesOwned<T>>::try_mutate(&owner, |kitty_vec| {
-				kitty_vec.try_push(kitty_id)
-			}).map_err(|_| <Error<T>>::ExceedMaxKittyOwned)?;
+			<DomainsOwned<T>>::try_mutate(&owner, |domain_vec| {
+				domain_vec.try_push(domain_id)
+			}).map_err(|_| <Error<T>>::ExceedMaxdomainOwned)?;
 
-			<Kitties<T>>::insert(kitty_id, kitty);
-			<KittyCnt<T>>::put(new_cnt);
-			Ok(kitty_id)
+			<Domains<T>>::insert(domain_id, domainStruct);
+			<DomainCnt<T>>::put(new_cnt);
+			Ok(domain_id)
 		}
 
-		pub fn mint_new(
-			owner: &T::AccountId,
-			dna: Option<[u8; 16]>,
-			gender: Option<Gender>,
-		) -> Result<T::Hash, Error<T>> {
-			let kitty = Kitty::<T> {
-				dna: dna.unwrap_or_else(Self::gen_dna),
-				price: None,
-				gender: gender.unwrap_or_else(Self::gen_gender),
-				owner: owner.clone(),
-				date_created: Some(T::TimeNew::now())
-			};
-
-			let kitty_id = T::Hashing::hash_of(&kitty);
-
-			// Performs this operation first as it may fail
-			let new_cnt = Self::kitty_cnt().checked_add(1)
-				.ok_or(<Error<T>>::KittyCntOverflow)?;
-
-			// Performs this operation first because as it may fail
-			<KittiesOwned<T>>::try_mutate(&owner, |kitty_vec| {
-				kitty_vec.try_push(kitty_id)
-			}).map_err(|_| <Error<T>>::ExceedMaxKittyOwned)?;
-
-			<Kitties<T>>::insert(kitty_id, kitty);
-			<KittyCnt<T>>::put(new_cnt);
-			Ok(kitty_id)
+		pub fn is_domain_owner(domain_id: &T::Hash, acct: &T::AccountId) -> Result<bool, Error<T>> {
+			match Self::domains(domain_id) {
+				Some(domain) => Ok(domain.owner == *acct),
+				None => Err(<Error<T>>::domainNotExist)
+			}
 		}
 
-		pub fn is_kitty_owner(kitty_id: &T::Hash, acct: &T::AccountId) -> Result<bool, Error<T>> {
-			match Self::kitties(kitty_id) {
-				Some(kitty) => Ok(kitty.owner == *acct),
-				None => Err(<Error<T>>::KittyNotExist)
+		pub fn is_domain_isset(domain_id: &T::Hash) -> Result<bool, Error<T>> {
+			match Self::domains(domain_id) {
+				Some(domain) => Err(<Error<T>>::DomainIsset),
+				None => Ok(true)
 			}
 		}
 
 		#[transactional]
-		pub fn transfer_kitty_to(
-			kitty_id: &T::Hash,
+		pub fn transfer_domain_to(
+			domain_id: &T::Hash,
 			to: &T::AccountId,
 		) -> Result<(), Error<T>> {
-			let mut kitty = Self::kitties(&kitty_id).ok_or(<Error<T>>::KittyNotExist)?;
+			let mut domain = Self::domains(&domain_id).ok_or(<Error<T>>::domainNotExist)?;
 
-			let prev_owner = kitty.owner.clone();
+			let prev_owner = domain.owner.clone();
 
-			// Remove `kitty_id` from the KittyOwned vector of `prev_kitty_owner`
-			<KittiesOwned<T>>::try_mutate(&prev_owner, |owned| {
-				if let Some(ind) = owned.iter().position(|&id| id == *kitty_id) {
+			// Remove `domain_id` from the domainOwned vector of `prev_domain_owner`
+			<DomainsOwned<T>>::try_mutate(&prev_owner, |owned| {
+				if let Some(ind) = owned.iter().position(|&id| id == *domain_id) {
 					owned.swap_remove(ind);
 					return Ok(());
 				}
 				Err(())
-			}).map_err(|_| <Error<T>>::KittyNotExist)?;
+			}).map_err(|_| <Error<T>>::domainNotExist)?;
 
-			// Update the kitty owner
-			kitty.owner = to.clone();
-			// Reset the ask price so the kitty is not for sale until `set_price()` is called
+			// Update the domain owner
+			domain.owner = to.clone();
+			// Reset the ask price so the domain is not for sale until `set_price()` is called
 			// by the current owner.
-			kitty.price = None;
+			domain.price = None;
 
-			<Kitties<T>>::insert(kitty_id, kitty);
+			<Domains<T>>::insert(domain_id, domain);
 
-			<KittiesOwned<T>>::try_mutate(to, |vec| {
-				vec.try_push(*kitty_id)
-			}).map_err(|_| <Error<T>>::ExceedMaxKittyOwned)?;
+			<DomainsOwned<T>>::try_mutate(to, |vec| {
+				vec.try_push(*domain_id)
+			}).map_err(|_| <Error<T>>::ExceedMaxdomainOwned)?;
 
 			Ok(())
 		}
-	}
-}
-
-pub trait KittyNew<T:Config> {
-	fn create_kitty_new(origin: OriginFor<T>) -> DispatchResult;
-}
-impl<T:Config> KittyNew<T> for Pallet<T> {
-	fn create_kitty_new(origin: OriginFor<T>)-> DispatchResult {
-		let sender = ensure_signed(origin)?;
-		let kitty_id = Self::mint_new(&sender, None, None)?;
-
-		// Logging to the console
-		log::info!("A kitty is born with ID: {:?}.", kitty_id);
-		// Deposit our "Created" event.
-		Self::deposit_event(Event::Created(sender, kitty_id));
-		Ok(())
 	}
 }

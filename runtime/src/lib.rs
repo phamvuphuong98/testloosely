@@ -277,19 +277,17 @@ impl pallet_template::Config for Runtime {
 /// Configure the pallet-loosely in pallets/loosely.
 impl pallet_loosely::Config for Runtime {
 	type Event = Event;
-	type Create = SubstrateKitties;
 }
 
 parameter_types! {
-	pub const MaxKittyOwned: u32 = 10;
+	pub const MaxDomainOwned: u32 = 10;
 }
 
 /// Configure the pallet-kitties in pallets/kitties.
 impl pallet_kitties::Config for Runtime {
 	type Event = Event;
-	type MaxKittyOwned = MaxKittyOwned;
+	type MaxDomainOwned = MaxDomainOwned;
 	type Currency = Balances;
-	type KittyRandomness = RandomnessCollectiveFlip;
 	type TimeNew = Timestamp;
 }
 // Create the runtime by composing the FRAME pallets that were previously configured.
